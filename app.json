@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "时光留声",
+    "slug": "time-echo-memoir",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#4A90E2"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.timeecho.memoir",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#4A90E2"
+      },
+      "package": "com.timeecho.memoir",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      [
+        "@react-native-voice/voice",
+        {
+          "microphonePermission": "此应用需要麦克风权限来记录您的语音",
+          "speechRecognitionPermission": "此应用需要语音识别权限来转换您的语音为文字"
+        }
+      ]
+    ],
+    "permissions": [
+      "RECORD_AUDIO",
+      "MICROPHONE"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ab1c0b37-05fb-4fac-8b64-0a0619a66a22"
+      }
+    }
+  }
+}
