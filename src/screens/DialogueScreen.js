@@ -83,8 +83,8 @@ const DialogueScreen = ({ route, navigation }) => {
     const newHistory = [...conversationHistory, { role: 'user', content: speechText }];
     setConversationHistory(newHistory);
     
-    // 2. 获取AI的下一个问题
-    const { next_question } = await getNextQuestion(newHistory);
+    // 2. 获取AI的下一个问题，传递主题参数
+    const { next_question } = await getNextQuestion(newHistory, scene.title);
     
     // 3. 更新AI问题并朗读
     setCurrentAIQuestion(next_question);
@@ -96,8 +96,8 @@ const DialogueScreen = ({ route, navigation }) => {
 
   const handleEndDialogue = async () => {
     setIsProcessing(true);
-    // 1. 生成最终故事
-    const finalStory = await generateMemoir(conversationHistory);
+    // 1. 生成最终故事，传递主题参数
+    const finalStory = await generateMemoir(conversationHistory, scene.title);
     
     // 2. 保存故事到本地
     await saveMemoir(finalStory);

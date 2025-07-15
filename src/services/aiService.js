@@ -1,55 +1,167 @@
 /**
  * aiService.js
  * 
- * [重要] TODO: 当前为模拟AI服务 (Task ID: replace-mock-ai)
- * 这里的实现需要被替换为与真实后端大语言模型(LLM)的API交互逻辑。
- * 模拟的目的是为了在没有后端的情况下，能够独立开发和测试前端的完整对话流程。
+ * AI服务 - 连接到后端LLM API
+ * 提供智能对话和回忆录生成功能
  */
 
-// 模拟网络延迟的辅助函数
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// 模拟的追问问题库
-const MOCK_QUESTIONS = [
-    "这个听起来很有趣，能再多讲一点细节吗？",
-    "当时您的心情怎么样？",
-    "那件事对您后来有什么影响呢？",
-    "除了您之外，还有谁参与其中？他/她扮演了什么角色？"
-];
-
-let questionIndex = 0;
+// 后端API基础URL - 在生产环境中应该从环境变量获取
+const API_BASE_URL = __DEV__ ? 'http://localhost:3000' : 'https://your-railway-domain.up.railway.app';
 
 /**
- * [模拟] 获取AI的下一个引导性问题
+ * 构建系统提示词
+ * @param {string} theme - 对话主题
+ * @returns {string} 系统提示词
+ */
+function buildSystemPrompt(theme) {
+    return `你是一个专业的回忆录访谈官，正在帮助一位长者记录关于"${theme}"的珍贵回忆。
+
+你的任务是：
+1. 用温暖、亲切的语调与用户对话
+2. 提出开放式的、富有启发性的问题
+3. 根据用户的回答进行智能追问，挖掘更多细节
+4. 关注人物、地点、情感、事件等关键信息
+5. 让对话自然流畅，就像和老朋友聊天一样
+
+请用中文回复，语言要简洁明了，适合老年人理解。每次只问一个问题，不要太长。`;
+}
+
+/**
+ * 构建回忆录生成提示词
+ * @param {string} theme - 对话主题
+ * @param {Array} conversationHistory - 对话历史
+ * @returns {string} 生成提示词
+ */
+function buildMemoirPrompt(theme, conversationHistory) {
+    const userMessages = conversationHistory
+        .filter(msg => msg.role === 'user')
+        .map(msg => msg.content)
+        .join('\n');
+
+    return `请根据以下对话内容，为长者生成一篇温暖、生动的回忆录文章。
+
+主题：${theme}
+对话内容：
+${userMessages}
+
+要求：
+1. 用第一人称"我"来写，就像长者在亲自讲述
+2. 语言要温暖、生动，富有情感
+3. 保持真实性，不要添加对话中没有的内容
+4. 结构清晰，有开头、发展和结尾
+5. 字数控制在300-500字之间
+6. 第一行是标题，后面是正文内容
+
+格式：
+标题：一个简洁有力的标题
+正文：完整的回忆录内容`;
+}
+
+/**
+ * 获取AI的下一个引导性问题
  * @param {Array<object>} conversationHistory - 对话历史记录
+ * @param {string} theme - 对话主题
  * @returns {Promise<object>} 返回包含下一个问题的对象 { next_question: string }
  */
-export const getNextQuestion = async (conversationHistory) => {
-    console.log("AI Service: Received conversation history: ", conversationHistory);
-    await sleep(800); // 模拟网络延迟
+export const getNextQuestion = async (conversationHistory, theme = '生活回忆') => {
+    try {
+        console.log("AI Service: Requesting next question for theme:", theme);
+        
+        // 构建消息历史
+        const messages = [
+            {
+                role: 'system',
+                content: buildSystemPrompt(theme)
+            },
+            ...conversationHistory
+        ];
 
-    const nextQuestion = MOCK_QUESTIONS[questionIndex % MOCK_QUESTIONS.length];
-    questionIndex++;
-    
-    console.log("AI Service: Sending next question: ", nextQuestion);
-    return { next_question: nextQuestion };
+        const response = await fetch(`${API_BASE_URL}/api/chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                messages: messages,
+                type: 'question'
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("AI Service: Received next question:", data.next_question);
+        
+        return { next_question: data.next_question };
+    } catch (error) {
+        console.error('AI Service Error:', error);
+        
+        // 降级到本地备用问题
+        const fallbackQuestions = [
+            "能再详细说说这件事的经过吗？",
+            "当时您的心情是怎样的？",
+            "这件事对您后来有什么影响呢？",
+            "还有其他人参与其中吗？",
+            "您觉得这段经历最珍贵的是什么？"
+        ];
+        
+        const randomQuestion = fallbackQuestions[Math.floor(Math.random() * fallbackQuestions.length)];
+        return { next_question: randomQuestion };
+    }
 };
 
 /**
- * [模拟] 根据对话历史生成最终的回忆录故事
- * @param {Array<object>} conversationHistory - 对ahistor
+ * 根据对话历史生成最终的回忆录故事
+ * @param {Array<object>} conversationHistory - 对话历史
+ * @param {string} theme - 对话主题
  * @returns {Promise<object>} 返回包含标题和内容的故事对象 { title: string, content: string }
  */
-export const generateMemoir = async (conversationHistory) => {
-    console.log("AI Service: Received history to generate memoir: ", conversationHistory);
-    await sleep(1500); // 模拟生成过程的网络延迟
+export const generateMemoir = async (conversationHistory, theme = '生活回忆') => {
+    try {
+        console.log("AI Service: Generating memoir for theme:", theme);
+        
+        const messages = [
+            {
+                role: 'user',
+                content: buildMemoirPrompt(theme, conversationHistory)
+            }
+        ];
 
-    const finalStory = {
-        title: "AI生成的美好回忆",
-        theme: conversationHistory.length > 0 ? conversationHistory[0].theme : '自定义主题',
-        content: "根据您刚才的讲述，AI将那些珍贵的片段编织成了一个动人的故事。这里是故事的正文内容，它详细记录了您分享的每一个细节和情感，成为了一段可以永久珍藏的文字记忆。"
-    };
+        const response = await fetch(`${API_BASE_URL}/api/chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                messages: messages,
+                type: 'memoir'
+            })
+        });
 
-    console.log("AI Service: Generated final story: ", finalStory);
-    return finalStory;
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("AI Service: Generated memoir:", data);
+        
+        return {
+            title: data.title || '我的珍贵回忆',
+            theme: theme,
+            content: data.content || '这是一段珍贵的回忆，记录了您分享的美好时光。'
+        };
+    } catch (error) {
+        console.error('AI Service Error:', error);
+        
+        // 降级到本地生成
+        const fallbackContent = `关于${theme}的回忆，您分享了许多珍贵的片段。虽然网络连接出现了问题，但这些美好的记忆已经深深印在心中。每一个细节都是生活的珍贵财富，值得永远珍藏。`;
+        
+        return {
+            title: `关于${theme}的回忆`,
+            theme: theme,
+            content: fallbackContent
+        };
+    }
 }; 
