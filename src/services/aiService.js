@@ -5,8 +5,8 @@
  * 提供智能对话和回忆录生成功能
  */
 
-// 后端API基础URL - 在生产环境中应该从环境变量获取
-const API_BASE_URL = __DEV__ ? 'http://localhost:3000' : 'https://your-railway-domain.up.railway.app';
+// 后端API基础URL - 生产环境使用Railway域名
+const API_BASE_URL = __DEV__ ? 'http://localhost:3000' : 'https://memoir-backend-production.up.railway.app';
 
 /**
  * 构建系统提示词
