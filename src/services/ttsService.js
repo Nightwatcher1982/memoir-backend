@@ -74,9 +74,10 @@ const tryAITTS = async (text) => {
        // 返回的是音频数据
        console.log('🎵 收到AI语音数据，准备播放...');
        
-       try {
+                try {
          // 获取音频数据
          const audioBlob = await response.blob();
+         console.log(`📊 AI音频数据大小: ${audioBlob.size} bytes, 类型: ${audioBlob.type}`);
          
          // 将blob转换为可播放的URI
          const reader = new FileReader();
@@ -86,6 +87,8 @@ const tryAITTS = async (text) => {
                const base64Audio = reader.result.split(',')[1];
                const audioUri = `data:audio/wav;base64,${base64Audio}`;
                
+               console.log(`🎵 音频URI长度: ${audioUri.length} 字符`);
+               
                // 配置音频模式
                await Audio.setAudioModeAsync({
                  allowsRecordingIOS: false,
@@ -93,12 +96,21 @@ const tryAITTS = async (text) => {
                  playsInSilentModeIOS: true,
                  shouldDuckAndroid: true,
                  playThroughEarpieceAndroid: false,
+                 interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
+                 interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
                });
                
                // 创建并播放音频
                const { sound } = await Audio.Sound.createAsync(
                  { uri: audioUri },
-                 { shouldPlay: true, volume: 1.0 }
+                 { 
+                   shouldPlay: true, 
+                   volume: 1.0,
+                   rate: 1.0,
+                   shouldCorrectPitch: true,
+                   progressUpdateIntervalMillis: 100,
+                   positionMillis: 0
+                 }
                );
                
                console.log('🎵 小露AI语音播放成功！');
@@ -109,12 +121,37 @@ const tryAITTS = async (text) => {
                    console.log('✅ 小露AI语音播放完成');
                    sound.unloadAsync();
                  }
+                 if (status.error) {
+                   console.log('🚫 音频播放状态错误:', status.error);
+                   sound.unloadAsync();
+                 }
                });
                
                resolve(true);
              } catch (playError) {
                console.log('🚫 AI音频播放失败:', playError);
-               resolve(false);
+               console.log('🔄 尝试使用替代音频格式...');
+               
+               // 尝试使用MP3格式
+               try {
+                 const mp3AudioUri = `data:audio/mp3;base64,${base64Audio}`;
+                 const { sound: mp3Sound } = await Audio.Sound.createAsync(
+                   { uri: mp3AudioUri },
+                   { shouldPlay: true, volume: 1.0 }
+                 );
+                 
+                 console.log('🎵 使用MP3格式播放成功！');
+                 mp3Sound.setOnPlaybackStatusUpdate((status) => {
+                   if (status.didJustFinish) {
+                     console.log('✅ MP3音频播放完成');
+                     mp3Sound.unloadAsync();
+                   }
+                 });
+                 resolve(true);
+               } catch (mp3Error) {
+                 console.log('🚫 MP3格式也失败:', mp3Error);
+                 resolve(false);
+               }
              }
            };
            reader.readAsDataURL(audioBlob);
