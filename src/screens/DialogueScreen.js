@@ -227,29 +227,40 @@ const DialogueScreen = ({ route, navigation }) => {
       const isAvailable = await Speech.isSpeakingAsync();
       console.log('Speech module status:', isAvailable ? 'speaking' : 'available');
       
-      await Speech.speak(text, { 
-        language: 'zh-CN', 
-        rate: 0.8,
-        pitch: 1.1,
+      // 尝试使用最自然的中文语音
+      const voiceOptions = {
+        language: 'zh-CN',
+        rate: 0.75,  // 稍微慢一点，更自然
+        pitch: 1.0,  // 标准音调
         volume: 1.0,
-        voice: 'com.apple.ttsbundle.Tingting-compact' // 使用更自然的中文声音
-      });
+        quality: 'enhanced' // 如果支持的话使用增强质量
+      };
+      
+      // 尝试指定更自然的声音
+      try {
+        // iOS优先尝试更自然的声音
+        if (Platform.OS === 'ios') {
+          voiceOptions.voice = 'com.apple.voice.compact.zh-CN.Tingting';
+        }
+      } catch (e) {
+        console.log('使用默认中文语音');
+      }
+      
+      await Speech.speak(text, voiceOptions);
       
       console.log('Speech started');
       console.log('提示：请确保设备音量已开启，并且不在静音模式');
       
-      // 监听语音完成
-      Speech.speak(text, {
-        language: 'zh-CN',
-        rate: 0.8,
-        pitch: 1.1,
-        onDone: () => {
-          console.log('Speech completed');
-        },
-        onError: (error) => {
-          console.log('Speech error:', error);
-        }
-      });
+      // 监听语音完成事件
+      const speechWithCallbacks = { ...voiceOptions };
+      speechWithCallbacks.onDone = () => {
+        console.log('Speech completed');
+      };
+      speechWithCallbacks.onError = (error) => {
+        console.log('Speech error:', error);
+      };
+      
+      // 注意：expo-speech可能不支持同时播放，所以这里只设置回调
     } catch (error) {
       console.log('Speech failed:', error);
       console.log('语音播放失败，请检查设备设备');

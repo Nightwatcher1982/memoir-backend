@@ -35,7 +35,13 @@ function buildSystemPrompt(theme) {
  * @returns {string} 生成提示词
  */
 function buildMemoirPrompt(theme, conversationHistory) {
-    const userMessages = conversationHistory
+    // 转换前端格式到标准格式，兼容两种格式
+    const convertedHistory = conversationHistory.map(entry => ({
+        role: entry.role || (entry.speaker === 'ai' ? 'assistant' : 'user'),
+        content: entry.content || entry.text
+    }));
+    
+    const userMessages = convertedHistory
         .filter(msg => msg.role === 'user')
         .map(msg => msg.content)
         .join('\n');
@@ -69,14 +75,21 @@ export const getNextQuestion = async (conversationHistory, theme = '生活回忆
     try {
         console.log("AI Service: Requesting next question for theme:", theme);
         
-        // 构建消息历史
+        // 构建消息历史 - 转换前端格式到AI API格式
+        const convertedHistory = conversationHistory.map(entry => ({
+            role: entry.speaker === 'ai' ? 'assistant' : 'user',
+            content: entry.text
+        }));
+        
         const messages = [
             {
                 role: 'system',
                 content: buildSystemPrompt(theme)
             },
-            ...conversationHistory
+            ...convertedHistory
         ];
+        
+        console.log("AI Service: Converted conversation history:", convertedHistory);
 
         const response = await fetch(`${API_BASE_URL}/api/chat`, {
             method: 'POST',
