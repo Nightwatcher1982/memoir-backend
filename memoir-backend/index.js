@@ -1,22 +1,15 @@
 const express = require('express');
 const crypto = require('crypto');
 const WebSocket = require('ws');
+const cors = require('cors');
+const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // 中间件
+app.use(cors());
 app.use(express.json());
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    if (req.method === 'OPTIONS') {
-        res.sendStatus(200);
-    } else {
-        next();
-    }
-});
 
 // 环境变量配置
 const IFLYTEK_APPID = process.env.IFLYTEK_APPID;
@@ -208,25 +201,19 @@ app.post('/api/chat', async (req, res) => {
     }
 
     try {
-        const response = await fetch('https://api.moonshot.cn/v1/chat/completions', {
-            method: 'POST',
+        const response = await axios.post('https://api.moonshot.cn/v1/chat/completions', {
+            model: 'moonshot-v1-8k',
+            messages: messages,
+            temperature: 0.7,
+            max_tokens: 2000
+        }, {
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${MOONSHOT_API_KEY}`
-            },
-            body: JSON.stringify({
-                model: 'moonshot-v1-8k',
-                messages: messages,
-                temperature: 0.7,
-                max_tokens: 2000
-            })
+            }
         });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
+        const data = response.data;
         
         if (data.choices && data.choices[0] && data.choices[0].message) {
             const content = data.choices[0].message.content;
