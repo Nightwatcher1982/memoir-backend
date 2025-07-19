@@ -1,223 +1,274 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, ActivityIndicator } from 'react-native';
-import Voice from '@react-native-voice/voice';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, ActivityIndicator, Alert, Platform, TextInput, ScrollView } from 'react-native';
 import * as Speech from 'expo-speech';
 import { getNextQuestion, generateMemoir } from '../services/aiService';
 import { saveMemoir } from '../services/storageService';
 
 const { width } = Dimensions.get('window');
 
+let Voice = null;
+try {
+  Voice = require('@react-native-voice/voice').default;
+} catch (e) {
+  console.log('Could not load react-native-voice. Manual input only.');
+}
+
 const DialogueScreen = ({ route, navigation }) => {
   const { scene } = route.params;
+  const latestSpeechResult = useRef('');
+  const scrollViewRef = useRef();
+  const isRecordingRef = useRef(false);
 
-  // 状态管理
   const [conversationHistory, setConversationHistory] = useState([]);
-  const [currentAIQuestion, setCurrentAIQuestion] = useState('');
-  const [userSpeech, setUserSpeech] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(true); // 是否正在等待AI响应
+  const [transientSpeech, setTransientSpeech] = useState('');
+  const [isProcessing, setIsProcessing] = useState(true);
   const [error, setError] = useState('');
+  const [manualInputVisible, setManualInputVisible] = useState(!Voice);
+  const [manualInput, setManualInput] = useState('');
 
-  // 初始化
   useEffect(() => {
-    // 设置Voice的事件监听器
-    Voice.onSpeechStart = onSpeechStart;
-    Voice.onSpeechEnd = onSpeechEnd;
-    Voice.onSpeechError = onSpeechError;
-    Voice.onSpeechResults = onSpeechResults;
-    
-    // 开始第一轮对话
-    const firstQuestion = `好的，让我们来聊聊关于“${scene.title}”的故事吧。请问，关于这个主题，您最先想到的是什么？`;
-    setCurrentAIQuestion(firstQuestion);
-    speak(firstQuestion, () => setIsProcessing(false)); // 说完后，允许用户开始录音
+    if (Voice) {
+      // Properly remove existing listeners
+      try {
+        Voice.removeAllListeners();
+      } catch (e) {
+        console.log('Warning: removeAllListeners failed:', e);
+      }
+
+      // Set up listeners with proper error handling
+      try {
+        Voice.onSpeechStart = () => setTransientSpeech('正在聆听...');
+        Voice.onSpeechPartialResults = (e) => setTransientSpeech(e.value?.[0] || '...');
+        Voice.onSpeechResults = (e) => {
+          const result = e.value?.[0] || '';
+          latestSpeechResult.current = result;
+          setTransientSpeech(result);
+        };
+        Voice.onSpeechError = (e) => {
+          console.log('Speech error:', e);
+          setError(`语音错误: ${e.error || 'Unknown error'}`);
+        };
+        Voice.onSpeechEnd = () => {
+          console.log('onSpeechEnd fired - cleaning up transient state only');
+          setTransientSpeech('');
+          // Don't modify isRecordingRef here to avoid conflicts with manual stop
+        };
+        
+        console.log('Voice listeners set up successfully');
+      } catch (e) {
+        console.error('Failed to set up voice listeners:', e);
+        setManualInputVisible(true);
+      }
+
+      Voice.isAvailable().then(available => {
+        if (!available) setManualInputVisible(true);
+      }).catch(e => {
+        console.error('Voice availability check failed:', e);
+        setManualInputVisible(true);
+      });
+    }
+
+    getFirstQuestion();
 
     return () => {
-      Voice.destroy().then(Voice.removeAllListeners);
-      Speech.stop();
+      if (Voice) {
+        Voice.removeAllListeners();
+        Voice.destroy().catch(console.error);
+      }
     };
   }, []);
-
-  // --- 语音识别 (STT) ---
-  const onSpeechStart = () => setIsRecording(true);
-  const onSpeechEnd = () => setIsRecording(false);
-  const onSpeechError = (e) => {
-    setError(JSON.stringify(e.error));
-    setIsRecording(false);
-  }
-  const onSpeechResults = (e) => {
-    const speechResult = e.value[0];
-    setUserSpeech(speechResult);
-    // 关键：用户说完后，立即处理
-    handleUserSpeech(speechResult);
-  };
   
-  const startRecognizing = async () => {
-    if(isProcessing) return;
-    setUserSpeech('');
-    setError('');
+  useEffect(() => {
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+  }, [conversationHistory]);
+
+  const getFirstQuestion = async () => {
+    setIsProcessing(true);
     try {
-      await Voice.start('zh-CN');
-    } catch (e) {
-      console.error(e);
+      const response = await getNextQuestion([], scene.title);
+      const firstQuestion = response.next_question;
+      setConversationHistory([{ speaker: 'ai', text: firstQuestion }]);
+      speakText(firstQuestion);
+    } catch (err) {
+      setError('获取初始问题失败');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  const stopRecognizing = async () => {
+  const startRecording = async () => {
+    if (!Voice || isRecordingRef.current) return;
+    
+    latestSpeechResult.current = '';
+    setTransientSpeech('');
+    setError('');
+    
+    try {
+      // Ensure Voice is in a clean state before starting
+      console.log('Preparing to start recording...');
+      
+      // Check if already recognizing and stop if needed
+      const isRecognizing = await Voice.isRecognizing();
+      if (isRecognizing) {
+        console.log('Voice is already recognizing, stopping first...');
+        await Voice.stop();
+        await new Promise(resolve => setTimeout(resolve, 100)); // Brief pause
+      }
+      
+      console.log('Starting recording...');
+      await Voice.start('zh-CN');
+      isRecordingRef.current = true;
+      console.log('Recording started successfully');
+    } catch (e) {
+      console.error('启动录音失败:', e);
+      setError('启动录音失败');
+      isRecordingRef.current = false;
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!Voice || !isRecordingRef.current) {
+      console.log('stopRecording: Cannot stop - Voice not available or not recording');
+      return;
+    }
+    
+    console.log('Stopping recording...');
+    isRecordingRef.current = false;
+    
     try {
       await Voice.stop();
+      console.log('Recording stopped successfully');
+      
+      // This is the single source of truth for handling results.
+      const finalSpeech = latestSpeechResult.current;
+      if (finalSpeech?.trim()) {
+        console.log('Processing final speech:', finalSpeech);
+        handleUserResponse(finalSpeech);
+      } else {
+        console.log('No valid speech to process');
+      }
     } catch (e) {
-      console.error(e);
+      console.error('停止录音时出错:', e);
+      setError('停止录音时出错');
+    }
+    setTransientSpeech('');
+  };
+
+  const handleUserResponse = async (response) => {
+    setConversationHistory(prev => [...prev, { speaker: 'user', text: response }]);
+    setIsProcessing(true);
+    try {
+      const history = [...conversationHistory, { speaker: 'user', text: response }];
+      const aiResponse = await getNextQuestion(history, scene.title);
+      const nextQuestion = aiResponse.next_question;
+      
+      if (nextQuestion?.toLowerCase().includes('memoir_generation_complete')) {
+         generateCompleteMemoir(history);
+      } else {
+        setConversationHistory(prev => [...prev, { speaker: 'ai', text: nextQuestion }]);
+        speakText(nextQuestion);
+      }
+    } catch (err) {
+      setError('AI服务连接失败');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  const submitManualInput = () => {
+    if (manualInput.trim()) {
+      handleUserResponse(manualInput);
+      setManualInput('');
     }
   };
 
-  // --- 文本转语音 (TTS) ---
-  const speak = (text, onDoneCallback) => {
-    Speech.speak(text, { language: 'zh-CN', onDone: onDoneCallback });
-  };
-  
-  // --- 核心对话逻辑 ---
-  const handleUserSpeech = async (speechText) => {
-    setIsProcessing(true); // 开始处理，禁用麦克风
-
-    // 1. 更新对话历史
-    const newHistory = [...conversationHistory, { role: 'user', content: speechText }];
-    setConversationHistory(newHistory);
-    
-    // 2. 获取AI的下一个问题，传递主题参数
-    const { next_question } = await getNextQuestion(newHistory, scene.title);
-    
-    // 3. 更新AI问题并朗读
-    setCurrentAIQuestion(next_question);
-    speak(next_question, () => {
-        setIsProcessing(false); // AI说完后，允许用户再次录音
-        setUserSpeech(''); // 清空上一轮的用户回答
-    });
+  const generateCompleteMemoir = async (history) => {
+    Alert.alert("对话完成", "正在为您生成回忆录...");
+    try {
+        const memoir = await generateMemoir(history);
+        await saveMemoir({ title: scene.title, content: memoir });
+        navigation.navigate('MemoirList');
+    } catch (err) {
+        setError("生成回忆录失败");
+    }
   };
 
-  const handleEndDialogue = async () => {
-    setIsProcessing(true);
-    // 1. 生成最终故事，传递主题参数
-    const finalStory = await generateMemoir(conversationHistory, scene.title);
-    
-    // 2. 保存故事到本地
-    await saveMemoir(finalStory);
-    
-    // 3. 导航到预览页
-    stopRecognizing();
-    navigation.navigate('StoryPreview', { memoir: finalStory });
+  const speakText = (text) => {
+    Speech.speak(text, { language: 'zh-CN', rate: 0.9 });
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.aiQuestionContainer}>
-          {isProcessing && !isRecording ? (
-            <ActivityIndicator size="large" color="#4A90E2" />
-          ) : (
-            <Text style={styles.aiQuestionText}>{currentAIQuestion}</Text>
-          )}
-        </View>
+    <SafeAreaView style={styles.container}>
+      <Text style={styles.title}>{scene.title}</Text>
+      
+      <ScrollView 
+        ref={scrollViewRef}
+        style={styles.conversationContainer}
+        contentContainerStyle={{ paddingBottom: 20 }}
+      >
+        {conversationHistory.map((entry, index) => (
+          <View key={index} style={[
+            styles.messageBubble,
+            entry.speaker === 'ai' ? styles.aiBubble : styles.userBubble
+          ]}>
+            <Text style={entry.speaker === 'ai' ? styles.aiText : styles.userText}>
+              {entry.text}
+            </Text>
+          </View>
+        ))}
+        {isProcessing && <ActivityIndicator size="small" color="#007aff" style={{marginVertical: 10}} />}
+      </ScrollView>
 
-        <View style={styles.userSpeechContainer}>
-          <Text style={styles.userSpeechText}>{userSpeech || (isRecording ? '...' : '')}</Text>
-        </View>
-
-        <View style={styles.micContainer}>
-          <TouchableOpacity 
-            style={[styles.micButton, (isRecording || isProcessing) && styles.micButtonDisabled]} 
-            onPress={startRecognizing}
-            disabled={isProcessing}
-          >
-            <Text style={styles.micIcon}>🎤</Text>
+      <View style={styles.inputSection}>
+        {transientSpeech && <Text style={styles.transientText}>{transientSpeech}</Text>}
+        
+        {manualInputVisible ? (
+          <View style={styles.manualInputArea}>
+            <TextInput
+              style={styles.textInput}
+              value={manualInput}
+              onChangeText={setManualInput}
+              placeholder="请在此输入您的回答..."
+            />
+            <TouchableOpacity onPress={submitManualInput} style={styles.submitButton}>
+              <Text style={styles.buttonText}>发送</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity onPressIn={startRecording} onPressOut={stopRecording} style={styles.recordButton}>
+            <Text style={styles.buttonText}>按住说话</Text>
           </TouchableOpacity>
-          <Text style={styles.micLabel}>
-            {isProcessing ? 'AI正在思考...' : (isRecording ? '正在聆听...' : '点击开始说话')}
-          </Text>
-        </View>
+        )}
 
-        <TouchableOpacity style={styles.endButton} onPress={handleEndDialogue}>
-          <Text style={styles.endButtonText}>聊完了，生成我的故事</Text>
+        <TouchableOpacity onPress={() => setManualInputVisible(prev => !prev)} style={styles.toggleButton}>
+          <Text style={styles.toggleText}>{manualInputVisible ? '语音输入' : '手动输入'}</Text>
         </TouchableOpacity>
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
       </View>
     </SafeAreaView>
   );
 };
 
-
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#FCF8F3',
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 25,
-    justifyContent: 'space-between',
-    paddingBottom: 40,
-  },
-  aiQuestionContainer: {
-    flex: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  aiQuestionText: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#3A3A3A',
-    textAlign: 'center',
-    lineHeight: 45,
-  },
-  userSpeechContainer: {
-    flex: 3,
-    justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-  },
-  userSpeechText: {
-    fontSize: 22,
-    color: '#5B5B5B',
-    lineHeight: 35,
-    textAlign: 'center',
-  },
-  micContainer: {
-    alignItems: 'center',
-    marginTop: 40,
-  },
-  micButton: {
-    width: width * 0.3,
-    height: width * 0.3,
-    borderRadius: (width * 0.3) / 2,
-    backgroundColor: '#4A90E2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 8,
-  },
-  micButtonDisabled: {
-    backgroundColor: '#BDBDBD', // 禁用时灰色
-  },
-  micIcon: {
-    fontSize: 50,
-  },
-  micLabel: {
-    fontSize: 20,
-    color: '#666',
-    marginTop: 15,
-  },
-  endButton: {
-    marginTop: 20,
-    alignSelf: 'center',
-    padding: 15,
-  },
-  endButtonText: {
-    fontSize: 18,
-    color: '#4A90E2',
-    fontWeight: 'bold',
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  title: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', padding: 15, backgroundColor: 'white' },
+  conversationContainer: { flex: 1, paddingHorizontal: 10 },
+  messageBubble: { borderRadius: 18, padding: 12, marginVertical: 4, maxWidth: '85%' },
+  aiBubble: { backgroundColor: '#e5e5ea', alignSelf: 'flex-start' },
+  userBubble: { backgroundColor: '#007aff', alignSelf: 'flex-end' },
+  aiText: { fontSize: 16, color: '#000' },
+  userText: { fontSize: 16, color: '#fff' },
+  inputSection: { padding: 10, borderTopWidth: 1, borderTopColor: '#e0e0e0', backgroundColor: 'white' },
+  transientText: { textAlign: 'center', color: 'gray', fontStyle: 'italic', marginBottom: 10 },
+  recordButton: { backgroundColor: '#007aff', padding: 20, borderRadius: 50, alignItems: 'center', margin: 10 },
+  buttonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  manualInputArea: { },
+  textInput: { borderWidth: 1, borderColor: '#ccc', borderRadius: 10, padding: 10, marginBottom: 10 },
+  submitButton: { backgroundColor: '#34c759', padding: 12, borderRadius: 10, alignItems: 'center' },
+  toggleButton: { alignSelf: 'center', marginTop: 10 },
+  toggleText: { color: '#007aff' },
+  errorText: { textAlign: 'center', color: 'red', marginTop: 5 },
 });
 
-export default DialogueScreen; 
+export default DialogueScreen;

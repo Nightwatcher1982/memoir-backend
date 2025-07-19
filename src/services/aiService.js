@@ -5,8 +5,8 @@
  * 提供智能对话和回忆录生成功能
  */
 
-// 后端API基础URL - 生产环境使用Railway域名
-const API_BASE_URL = __DEV__ ? 'http://localhost:3000' : 'https://memoir-backend-production.up.railway.app';
+// 后端API基础URL - 使用本地生产级API（已配置智能回退）
+const API_BASE_URL = __DEV__ ? 'http://192.168.3.115:3000' : 'https://memoir-backend-production.up.railway.app';
 
 /**
  * 构建系统提示词
@@ -83,7 +83,8 @@ export const getNextQuestion = async (conversationHistory, theme = '生活回忆
             },
             body: JSON.stringify({
                 messages: messages,
-                type: 'question'
+                type: 'question',
+                theme: theme
             })
         });
 
@@ -92,9 +93,17 @@ export const getNextQuestion = async (conversationHistory, theme = '生活回忆
         }
 
         const data = await response.json();
-        console.log("AI Service: Received next question:", data.next_question);
+        console.log("AI Service: Received response data:", data);
         
-        return { next_question: data.next_question };
+        // 增强的数据验证
+        if (!data || typeof data !== 'object') {
+            throw new Error('Invalid response data format');
+        }
+        
+        const nextQuestion = data.next_question || data.question || data.content || '';
+        console.log("AI Service: Received next question:", nextQuestion);
+        
+        return { next_question: nextQuestion };
     } catch (error) {
         console.error('AI Service Error:', error);
         
@@ -136,7 +145,8 @@ export const generateMemoir = async (conversationHistory, theme = '生活回忆'
             },
             body: JSON.stringify({
                 messages: messages,
-                type: 'memoir'
+                type: 'memoir',
+                theme: theme
             })
         });
 
@@ -145,12 +155,17 @@ export const generateMemoir = async (conversationHistory, theme = '生活回忆'
         }
 
         const data = await response.json();
-        console.log("AI Service: Generated memoir:", data);
+        console.log("AI Service: Generated memoir data:", data);
+        
+        // 增强的数据验证
+        if (!data || typeof data !== 'object') {
+            throw new Error('Invalid memoir data format');
+        }
         
         return {
-            title: data.title || '我的珍贵回忆',
+            title: data.title || data.Title || '我的珍贵回忆',
             theme: theme,
-            content: data.content || '这是一段珍贵的回忆，记录了您分享的美好时光。'
+            content: data.content || data.Content || '这是一段珍贵的回忆，记录了您分享的美好时光。'
         };
     } catch (error) {
         console.error('AI Service Error:', error);
