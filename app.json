@@ -3,6 +3,7 @@
     "name": "时光留声",
     "slug": "time-echo-memoir",
     "version": "1.0.0",
+    "main": "App.js",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "splash": {
@@ -34,6 +35,12 @@
         {
           "microphonePermission": "此应用需要麦克风权限来记录您的语音",
           "speechRecognitionPermission": "此应用需要语音识别权限来转换您的语音为文字"
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "此应用需要访问音频功能来播放AI生成的语音"
         }
       ]
     ],

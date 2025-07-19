@@ -4,6 +4,7 @@
  */
 
 import * as Speech from 'expo-speech';
+import { Audio } from 'expo-av';
 import { Platform } from 'react-native';
 
 // API基础URL
@@ -69,15 +70,60 @@ const tryAITTS = async (text) => {
       return false;
     }
     
-    if (contentType && contentType.includes('audio')) {
-      // 返回的是音频数据
-      console.log('🎵 收到AI语音数据，准备播放...');
-      
-      // TODO: 这里需要处理音频blob播放
-      // 由于React Native的限制，暂时记录成功但使用系统语音
-      console.log('📝 AI语音数据已接收，但需要expo-av库来播放');
-      return false; // 暂时返回false，等待expo-av集成
-    }
+         if (contentType && contentType.includes('audio')) {
+       // 返回的是音频数据
+       console.log('🎵 收到AI语音数据，准备播放...');
+       
+       try {
+         // 获取音频数据
+         const audioBlob = await response.blob();
+         
+         // 将blob转换为可播放的URI
+         const reader = new FileReader();
+         return new Promise((resolve) => {
+           reader.onload = async () => {
+             try {
+               const base64Audio = reader.result.split(',')[1];
+               const audioUri = `data:audio/wav;base64,${base64Audio}`;
+               
+               // 配置音频模式
+               await Audio.setAudioModeAsync({
+                 allowsRecordingIOS: false,
+                 staysActiveInBackground: false,
+                 playsInSilentModeIOS: true,
+                 shouldDuckAndroid: true,
+                 playThroughEarpieceAndroid: false,
+               });
+               
+               // 创建并播放音频
+               const { sound } = await Audio.Sound.createAsync(
+                 { uri: audioUri },
+                 { shouldPlay: true, volume: 1.0 }
+               );
+               
+               console.log('🎵 小露AI语音播放成功！');
+               
+               // 等待播放完成
+               sound.setOnPlaybackStatusUpdate((status) => {
+                 if (status.didJustFinish) {
+                   console.log('✅ 小露AI语音播放完成');
+                   sound.unloadAsync();
+                 }
+               });
+               
+               resolve(true);
+             } catch (playError) {
+               console.log('🚫 AI音频播放失败:', playError);
+               resolve(false);
+             }
+           };
+           reader.readAsDataURL(audioBlob);
+         });
+       } catch (audioError) {
+         console.log('🚫 处理AI音频数据失败:', audioError);
+         return false;
+       }
+     }
     
     return false;
     

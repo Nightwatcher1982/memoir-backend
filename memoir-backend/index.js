@@ -56,10 +56,10 @@ app.post('/api/tts', (req, res) => {
             common: { app_id: IFLYTEK_APPID },
             business: { 
                 aue: 'raw', 
-                vcn: 'xiaoyan', 
+                vcn: 'xiaolu', 
                 tte: 'UTF8',
-                speed: 40,
-                volume: 80,
+                speed: 45,
+                volume: 85,
                 pitch: 50
             },
             data: { 
