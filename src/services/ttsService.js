@@ -86,11 +86,18 @@ const tryAITTS = async (text) => {
              try {
                const base64Audio = reader.result.split(',')[1];
                
-               // 检测音频格式
-               const contentType = audioBlob.type || 'audio/mpeg';
-               const audioUri = `data:${contentType};base64,${base64Audio}`;
+               // 智能检测音频格式
+               let contentType = audioBlob.type || 'audio/mpeg';
+               // 如果后端还在返回WAV，我们兼容处理
+               if (contentType.includes('wav') || contentType === 'audio/wav') {
+                 console.log('🔧 检测到WAV格式，尝试作为音频播放');
+                 contentType = 'audio/wav';
+               } else {
+                 contentType = 'audio/mpeg';
+               }
                
-               console.log(`🎵 音频格式: ${contentType}, URI长度: ${audioUri.length} 字符`);
+               const audioUri = `data:${contentType};base64,${base64Audio}`;
+               console.log(`🎵 音频格式: ${contentType}, 数据大小: ${audioBlob.size} bytes, URI长度: ${audioUri.length} 字符`);
                
                // 配置音频模式
                await Audio.setAudioModeAsync({
@@ -99,8 +106,6 @@ const tryAITTS = async (text) => {
                  playsInSilentModeIOS: true,
                  shouldDuckAndroid: true,
                  playThroughEarpieceAndroid: false,
-                 interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
-                 interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
                });
                
                // 创建并播放音频
@@ -135,33 +140,39 @@ const tryAITTS = async (text) => {
                console.log('🚫 AI音频播放失败:', playError);
                console.log('🔄 尝试使用替代音频格式...');
                
-               // 尝试使用不同音频格式
-               try {
-                 console.log('🔄 尝试简化音频播放...');
-                 const simpleUri = `data:audio/mpeg;base64,${base64Audio}`;
-                 const { sound: simpleSound } = await Audio.Sound.createAsync(
-                   { uri: simpleUri },
-                   { 
-                     shouldPlay: false,  // 先不自动播放
-                     volume: 1.0 
-                   }
-                 );
-                 
-                 // 手动播放
-                 await simpleSound.playAsync();
-                 console.log('🎵 使用简化方式播放成功！');
-                 
-                 simpleSound.setOnPlaybackStatusUpdate((status) => {
-                   if (status.didJustFinish) {
-                     console.log('✅ 简化音频播放完成');
-                     simpleSound.unloadAsync();
-                   }
-                 });
-                 resolve(true);
-               } catch (simpleError) {
-                 console.log('🚫 简化格式也失败:', simpleError);
-                 resolve(false);
-               }
+                                // 尝试使用不同音频格式
+                 try {
+                   console.log('🔄 尝试简化音频播放...');
+                   // 检测音频格式并使用正确的MIME类型
+                   const detectedType = audioBlob.type.includes('mpeg') ? 'audio/mpeg' : 'audio/wav';
+                   const simpleUri = `data:${detectedType};base64,${base64Audio}`;
+                   
+                   console.log(`🎵 使用格式: ${detectedType}`);
+                   
+                   const { sound: simpleSound } = await Audio.Sound.createAsync(
+                     { uri: simpleUri },
+                     { 
+                       shouldPlay: false,  // 先不自动播放
+                       volume: 1.0,
+                       isLooping: false
+                     }
+                   );
+                   
+                   // 手动播放
+                   await simpleSound.playAsync();
+                   console.log('🎵 使用简化方式播放成功！');
+                   
+                   simpleSound.setOnPlaybackStatusUpdate((status) => {
+                     if (status.didJustFinish) {
+                       console.log('✅ 简化音频播放完成');
+                       simpleSound.unloadAsync();
+                     }
+                   });
+                   resolve(true);
+                 } catch (simpleError) {
+                   console.log('🚫 简化格式也失败:', simpleError);
+                   resolve(false);
+                 }
              }
            };
            reader.readAsDataURL(audioBlob);

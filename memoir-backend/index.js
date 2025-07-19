@@ -87,11 +87,13 @@ app.post('/api/tts', (req, res) => {
             ws.close();
             
             console.log(`🎵 生成小露语音MP3文件，大小: ${audioBuffer.length} bytes`);
+            console.log('🔧 强制MP3格式输出 - v2.0');
             
             res.set({
                 'Content-Type': 'audio/mpeg',
                 'Content-Length': audioBuffer.length,
-                'Cache-Control': 'no-cache'
+                'Cache-Control': 'no-cache',
+                'X-Audio-Format': 'MP3-LAME'
             });
             res.send(audioBuffer);
         }
