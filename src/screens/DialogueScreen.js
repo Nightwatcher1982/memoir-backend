@@ -88,7 +88,7 @@ const DialogueScreen = ({ route, navigation }) => {
       const response = await getNextQuestion([], scene.title);
       const firstQuestion = response.next_question;
       setConversationHistory([{ speaker: 'ai', text: firstQuestion }]);
-      speakText(firstQuestion);
+      await speakText(firstQuestion);
     } catch (err) {
       setError('获取初始问题失败');
     } finally {
@@ -166,7 +166,7 @@ const DialogueScreen = ({ route, navigation }) => {
          generateCompleteMemoir(history);
       } else {
         setConversationHistory(prev => [...prev, { speaker: 'ai', text: nextQuestion }]);
-        speakText(nextQuestion);
+        await speakText(nextQuestion);
       }
     } catch (err) {
       setError('AI服务连接失败');
@@ -193,8 +193,40 @@ const DialogueScreen = ({ route, navigation }) => {
     }
   };
 
-  const speakText = (text) => {
-    Speech.speak(text, { language: 'zh-CN', rate: 0.9 });
+  const speakText = async (text) => {
+    try {
+      console.log('Speaking text:', text);
+      console.log('🔊 如果听不到声音，请检查：1. 设备音量 2. 是否静音 3. 蓝牙连接');
+      
+      // 检查Speech模块是否可用
+      const isAvailable = await Speech.isSpeakingAsync();
+      console.log('Speech module status:', isAvailable ? 'speaking' : 'available');
+      
+      await Speech.speak(text, { 
+        language: 'zh-CN', 
+        rate: 0.8,
+        pitch: 1.0,
+        volume: 1.0
+      });
+      
+      console.log('Speech started');
+      console.log('提示：请确保设备音量已开启，并且不在静音模式');
+      
+      // 监听语音完成
+      Speech.speak(text, {
+        language: 'zh-CN',
+        rate: 0.8,
+        onDone: () => {
+          console.log('Speech completed');
+        },
+        onError: (error) => {
+          console.log('Speech error:', error);
+        }
+      });
+    } catch (error) {
+      console.log('Speech failed:', error);
+      console.log('语音播放失败，请检查设备设置');
+    }
   };
 
   return (

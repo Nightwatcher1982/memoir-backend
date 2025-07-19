@@ -80,12 +80,14 @@ export const getNextQuestion = async (conversationHistory, theme = '生活回忆
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify({
                 messages: messages,
                 type: 'question',
                 theme: theme
-            })
+            }),
+            timeout: 30000 // 30秒超时
         });
 
         if (!response.ok) {
@@ -106,6 +108,15 @@ export const getNextQuestion = async (conversationHistory, theme = '生活回忆
         return { next_question: nextQuestion };
     } catch (error) {
         console.error('AI Service Error:', error);
+        
+        // 网络诊断
+        if (error.message === 'Network request failed') {
+            console.log('🔧 网络连接失败，请检查：');
+            console.log('1. WiFi或移动网络连接');
+            console.log('2. 服务器是否正常运行');
+            console.log('3. 防火墙或代理设置');
+            console.log(`4. API URL: ${API_BASE_URL}`);
+        }
         
         // 降级到本地备用问题
         const fallbackQuestions = [
@@ -142,12 +153,14 @@ export const generateMemoir = async (conversationHistory, theme = '生活回忆'
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify({
                 messages: messages,
                 type: 'memoir',
                 theme: theme
-            })
+            }),
+            timeout: 30000 // 30秒超时
         });
 
         if (!response.ok) {
