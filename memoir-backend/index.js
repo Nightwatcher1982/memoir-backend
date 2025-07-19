@@ -56,7 +56,7 @@ app.post('/api/tts', (req, res) => {
             common: { app_id: IFLYTEK_APPID },
             business: { 
                 aue: 'lame', 
-                vcn: 'x2_xiaolu',
+                vcn: 'x4_yezi',
                 reg: '2',
                 tte: 'UTF8',
                 speed: 45,

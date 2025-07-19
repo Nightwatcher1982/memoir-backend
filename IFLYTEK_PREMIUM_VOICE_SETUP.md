@@ -21,7 +21,7 @@
 ```javascript
 business: { 
     aue: 'lame',           // MP3格式
-    vcn: 'x2_xiaolu',      // 特色发音人小露标识
+    vcn: 'x4_yezi',        // 特色发音人小露标识 (叶子)
     reg: '2',              // 特色发音人标识
     tte: 'UTF8',
     speed: 45,             // 语速适中
@@ -30,12 +30,11 @@ business: {
 }
 ```
 
-### 可能的语音标识变化
-特色发音人小露可能的vcn值：
-- `x2_xiaolu` (推荐)
-- `x_xiaolu` 
-- `xiaolu_emo` 
-- `premium_xiaolu`
+### 特色发音人小露信息
+- **正确的vcn值**: `x4_yezi`
+- **发音人名称**: 叶子 (小露)
+- **类型**: 特色发音人
+- **特点**: 温和自然的中文女声，情感丰富
 
 ## 🚨 常见问题排查
 
