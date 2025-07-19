@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Dimensions, Act
 import * as Speech from 'expo-speech';
 import { getNextQuestion, generateMemoir } from '../services/aiService';
 import { saveMemoir } from '../services/storageService';
+import { speakText as ttsSpeak, getTTSStatus } from '../services/ttsService';
 
 const { width } = Dimensions.get('window');
 
@@ -69,6 +70,7 @@ const DialogueScreen = ({ route, navigation }) => {
     }
 
     getFirstQuestion();
+    checkTTSStatus();
 
     return () => {
       if (Voice) {
@@ -81,6 +83,15 @@ const DialogueScreen = ({ route, navigation }) => {
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [conversationHistory]);
+
+  const checkTTSStatus = async () => {
+    try {
+      const status = await getTTSStatus();
+      console.log('🔍 TTS服务状态检查完成:', status);
+    } catch (error) {
+      console.log('🔍 TTS状态检查失败:', error);
+    }
+  };
 
   const getFirstQuestion = async () => {
     setIsProcessing(true);
@@ -195,75 +206,9 @@ const DialogueScreen = ({ route, navigation }) => {
 
   const speakText = async (text) => {
     try {
-      console.log('Speaking text:', text);
-      console.log('🔊 正在使用AI语音播放...');
-      
-      // 尝试使用后端TTS服务
-      try {
-        const ttsResponse = await fetch('https://memoir-backend-production-b9b6.up.railway.app/api/tts', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ text: text })
-        });
-        
-        if (ttsResponse.ok) {
-          const audioBlob = await ttsResponse.blob();
-          // 这里需要播放音频blob，但React Native需要特殊处理
-          console.log('🎵 使用AI语音服务播放');
-          // 暂时回退到系统语音，但显示AI语音标识
-        } else {
-          console.log('TTS服务不可用，使用系统语音');
-        }
-      } catch (ttsError) {
-        console.log('TTS服务连接失败，使用系统语音:', ttsError);
-      }
-      
-      // 使用优化的系统语音作为回退
-      console.log('🔊 如果听不到声音，请检查：1. 设备音量 2. 是否静音 3. 蓝牙连接');
-      
-      // 检查Speech模块是否可用
-      const isAvailable = await Speech.isSpeakingAsync();
-      console.log('Speech module status:', isAvailable ? 'speaking' : 'available');
-      
-      // 尝试使用最自然的中文语音
-      const voiceOptions = {
-        language: 'zh-CN',
-        rate: 0.75,  // 稍微慢一点，更自然
-        pitch: 1.0,  // 标准音调
-        volume: 1.0,
-        quality: 'enhanced' // 如果支持的话使用增强质量
-      };
-      
-      // 尝试指定更自然的声音
-      try {
-        // iOS优先尝试更自然的声音
-        if (Platform.OS === 'ios') {
-          voiceOptions.voice = 'com.apple.voice.compact.zh-CN.Tingting';
-        }
-      } catch (e) {
-        console.log('使用默认中文语音');
-      }
-      
-      await Speech.speak(text, voiceOptions);
-      
-      console.log('Speech started');
-      console.log('提示：请确保设备音量已开启，并且不在静音模式');
-      
-      // 监听语音完成事件
-      const speechWithCallbacks = { ...voiceOptions };
-      speechWithCallbacks.onDone = () => {
-        console.log('Speech completed');
-      };
-      speechWithCallbacks.onError = (error) => {
-        console.log('Speech error:', error);
-      };
-      
-      // 注意：expo-speech可能不支持同时播放，所以这里只设置回调
+      await ttsSpeak(text);
     } catch (error) {
-      console.log('Speech failed:', error);
-      console.log('语音播放失败，请检查设备设备');
+      console.error('语音播放失败:', error);
     }
   };
 
