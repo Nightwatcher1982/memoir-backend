@@ -56,7 +56,8 @@ app.post('/api/tts', (req, res) => {
             common: { app_id: IFLYTEK_APPID },
             business: { 
                 aue: 'lame', 
-                vcn: 'xiaolu', 
+                vcn: 'x2_xiaolu',
+                reg: '2',
                 tte: 'UTF8',
                 speed: 45,
                 volume: 85,
@@ -67,15 +68,23 @@ app.post('/api/tts', (req, res) => {
                 text: Buffer.from(text).toString('base64') 
             }
         };
+        
+        console.log(`🎤 特色发音人配置: vcn=${frame.business.vcn}, reg=${frame.business.reg}`);
+        console.log(`📝 TTS文本长度: ${text.length} 字符`);
         ws.send(JSON.stringify(frame));
     });
 
     ws.on('message', (data) => {
         const response = JSON.parse(data);
         if (response.code !== 0) {
-            console.error(`TTS Error: ${response.code} ${response.message}`);
+            console.error(`🚫 特色发音人TTS错误: code=${response.code}, message=${response.message}`);
+            console.error(`📊 完整响应:`, JSON.stringify(response, null, 2));
             ws.close();
-            return res.status(500).json({ error: 'TTS service error' });
+            return res.status(500).json({ 
+                error: 'TTS service error', 
+                code: response.code, 
+                message: response.message 
+            });
         }
         
         if (response.data && response.data.audio) {
