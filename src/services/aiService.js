@@ -5,8 +5,10 @@
  * 提供智能对话和回忆录生成功能
  */
 
-// 后端API基础URL - 使用Railway云端部署
-const API_BASE_URL = __DEV__ ? 'http://192.168.3.115:3000' : 'https://memoir-backend-production-b9b6.up.railway.app';
+// 后端API基础URL - 强制使用Railway云端部署
+// const API_BASE_URL = __DEV__ ? 'http://192.168.3.115:3000' : 'https://memoir-backend-production-b9b6.up.railway.app';
+const API_BASE_URL = 'https://memoir-backend-production-b9b6.up.railway.app'; // 强制使用云端API
+console.log('🌍 API Base URL:', API_BASE_URL);
 
 /**
  * 构建系统提示词
