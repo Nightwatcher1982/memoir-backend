@@ -85,9 +85,12 @@ const tryAITTS = async (text) => {
            reader.onload = async () => {
              try {
                const base64Audio = reader.result.split(',')[1];
-               const audioUri = `data:audio/wav;base64,${base64Audio}`;
                
-               console.log(`🎵 音频URI长度: ${audioUri.length} 字符`);
+               // 检测音频格式
+               const contentType = audioBlob.type || 'audio/mpeg';
+               const audioUri = `data:${contentType};base64,${base64Audio}`;
+               
+               console.log(`🎵 音频格式: ${contentType}, URI长度: ${audioUri.length} 字符`);
                
                // 配置音频模式
                await Audio.setAudioModeAsync({
@@ -132,24 +135,31 @@ const tryAITTS = async (text) => {
                console.log('🚫 AI音频播放失败:', playError);
                console.log('🔄 尝试使用替代音频格式...');
                
-               // 尝试使用MP3格式
+               // 尝试使用不同音频格式
                try {
-                 const mp3AudioUri = `data:audio/mp3;base64,${base64Audio}`;
-                 const { sound: mp3Sound } = await Audio.Sound.createAsync(
-                   { uri: mp3AudioUri },
-                   { shouldPlay: true, volume: 1.0 }
+                 console.log('🔄 尝试简化音频播放...');
+                 const simpleUri = `data:audio/mpeg;base64,${base64Audio}`;
+                 const { sound: simpleSound } = await Audio.Sound.createAsync(
+                   { uri: simpleUri },
+                   { 
+                     shouldPlay: false,  // 先不自动播放
+                     volume: 1.0 
+                   }
                  );
                  
-                 console.log('🎵 使用MP3格式播放成功！');
-                 mp3Sound.setOnPlaybackStatusUpdate((status) => {
+                 // 手动播放
+                 await simpleSound.playAsync();
+                 console.log('🎵 使用简化方式播放成功！');
+                 
+                 simpleSound.setOnPlaybackStatusUpdate((status) => {
                    if (status.didJustFinish) {
-                     console.log('✅ MP3音频播放完成');
-                     mp3Sound.unloadAsync();
+                     console.log('✅ 简化音频播放完成');
+                     simpleSound.unloadAsync();
                    }
                  });
                  resolve(true);
-               } catch (mp3Error) {
-                 console.log('🚫 MP3格式也失败:', mp3Error);
+               } catch (simpleError) {
+                 console.log('🚫 简化格式也失败:', simpleError);
                  resolve(false);
                }
              }
