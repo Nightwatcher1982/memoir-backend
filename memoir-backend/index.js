@@ -550,10 +550,7 @@ const generateSmartQuestion = (messages, theme) => {
     return generateIntelligentQuestion(messages, theme, userResponses.length);
 };
 
-// 修改现有的智能回忆录生成函数  
-const generateSmartMemoir = (messages, theme, style = 'warm') => {
-    return generateIntelligentMemoir(messages, theme, style);
-};
+// 已移除：使用下方增强版的generateSmartMemoir函数
 
 // 健康检查
 app.get('/', (req, res) => {
