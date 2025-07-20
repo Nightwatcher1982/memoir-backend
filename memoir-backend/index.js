@@ -821,6 +821,34 @@ app.post('/api/chat', async (req, res) => {
         return res.status(400).json({ error: 'Messages array is required' });
     }
 
+    // 🔥 数据格式转换 - 处理前端发送的 {speaker, text} 格式
+    console.log('🔥 原始接收数据格式:', JSON.stringify(messages.slice(0, 2), null, 2));
+    
+    // 转换前端格式 {speaker, text} 到标准格式 {role, content}
+    const convertedMessages = messages.map(msg => {
+        if (msg.speaker && msg.text) {
+            // 前端格式转换
+            return {
+                role: msg.speaker === 'ai' ? 'assistant' : 'user',
+                content: msg.text
+            };
+        } else if (msg.role && msg.content) {
+            // 标准格式，直接使用
+            return msg;
+        } else {
+            // 兜底处理
+            return {
+                role: 'user',
+                content: JSON.stringify(msg)
+            };
+        }
+    });
+    
+    console.log('🔥 转换后数据格式:', JSON.stringify(convertedMessages.slice(0, 2), null, 2));
+    
+    // 使用转换后的数据
+    const normalizedMessages = convertedMessages;
+
     // 强制使用生产级模拟AI (暂时禁用外部API)
     const USE_SIMULATION = true;
     
@@ -833,7 +861,7 @@ app.post('/api/chat', async (req, res) => {
             const userMessages = messages.filter(msg => msg.role === 'user');
             const questionCount = userMessages.length;
             
-            console.log(`🎯 智能提问 - 主题: ${theme}, 问题数: ${questionCount}`);
+            console.log(`🎯 智能提问 - 主题: ${theme}, 问题数: ${questionCount}, 数据格式已转换`);
             
             // 分阶段深度提问框架
             const questionSets = {
@@ -1031,18 +1059,18 @@ app.post('/api/chat', async (req, res) => {
         };
         
         if (type === 'question') {
-            const smartQuestion = generateSmartQuestion(messages, theme || '童年时光');
+            const smartQuestion = generateSmartQuestion(normalizedMessages, theme || '童年时光');
             return res.json({ next_question: smartQuestion });
         } else if (type === 'memoir') {
             console.log('🔥 后端收到memoir请求:', {
                 type,
                 theme,
                 style,
-                messagesCount: messages.length,
-                firstMessage: messages[0],
-                lastMessage: messages[messages.length - 1]
+                messagesCount: normalizedMessages.length,
+                firstMessage: normalizedMessages[0],
+                lastMessage: normalizedMessages[normalizedMessages.length - 1]
             });
-            const memoir = generateSmartMemoir(messages, theme || '童年时光', style || 'warm');
+            const memoir = generateSmartMemoir(normalizedMessages, theme || '童年时光', style || 'warm');
             console.log('🔥 后端生成memoir结果:', {
                 title: memoir.title,
                 contentLength: memoir.content.length,
