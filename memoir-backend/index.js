@@ -890,28 +890,131 @@ app.post('/api/chat', async (req, res) => {
             return stageQuestions[questionIndex] || `经过我们的对话，我感受到了您丰富的人生阅历。还有什么关于${theme}的珍贵回忆想要分享的吗？`;
         };
         
-        // 生成智能回忆录
-        const generateSmartMemoir = (messages, theme) => {
+        // 生成智能回忆录 - 增强版800-1000字
+        const generateSmartMemoir = (messages, theme, style = 'warm') => {
             const userResponses = messages.filter(msg => msg.role === 'user').map(msg => msg.content);
-            const responseCount = userResponses.length;
             
-            const memoirTemplates = {
-                '童年时光': {
-                    title: "我的童年岁月",
-                    content: `童年，是人生中最纯真美好的时光。${responseCount > 0 ? '在我的记忆中，' : ''}那些珍贵的往事至今还历历在目...\n\n${userResponses.length > 0 ? '回忆起那些日子，' + userResponses.slice(0, 3).join('，') + '...' : '那时的我们，无忧无虑，每一天都充满了新奇和快乐。'}\n\n这些美好的童年记忆，成为了我一生中最宝贵的财富。它们教会了我什么是纯真，什么是快乐，也为我的人生观和价值观奠定了基础。`
-                },
-                '求学之路': {
-                    title: "我的求学时光",
-                    content: `求学路上，每一步都充满了挑战与收获。${responseCount > 0 ? '那些年里，' : ''}老师的教诲、同窗的友谊，都是我人生中珍贵的财富...\n\n${userResponses.length > 0 ? '回想起学生时代，' + userResponses.slice(0, 3).join('，') + '...' : '那时的我们，为了理想而努力，为了知识而奋斗。'}\n\n这段求学经历不仅给了我知识，更重要的是塑造了我的品格，让我学会了坚持、努力和感恩。`
-                },
-                '时代记忆': {
-                    title: "我见证的时代",
-                    content: `时代的变迁，见证了历史的车轮滚滚向前。${responseCount > 0 ? '在我的经历中，' : ''}每一个历史时刻都深深印在我的心里...\n\n${userResponses.length > 0 ? '那个年代，' + userResponses.slice(0, 3).join('，') + '...' : '那是一个充满变化的时代，我们在历史的洪流中成长。'}\n\n这些时代记忆不仅是个人的经历，更是整个社会发展的缩影。它们让我明白了历史的厚重，也让我更加珍惜今天的美好生活。`
+            // 分析对话内容
+            const fullDialogue = messages.map(msg => `${msg.role === 'user' ? '我' : 'AI'}：${msg.content}`).join('\n');
+            
+            // 根据主题生成详细回忆录
+            const generateDetailedMemoir = (theme, responses, style) => {
+                const styleTemplates = {
+                    warm: {
+                        opening: '时光荏苒，回想起',
+                        transition: '在我的记忆中，',
+                        emotion: '那些温暖的',
+                        ending: '这些珍贵的回忆，如温暖的阳光，永远照亮着我前行的路。'
+                    },
+                    vivid: {
+                        opening: '历历在目的是',
+                        transition: '清晰地记得，',
+                        emotion: '那些生动的',
+                        ending: '这些如画般的回忆，永远在我心中闪闪发光。'
+                    },
+                    poetic: {
+                        opening: '岁月如诗，吟唱着',
+                        transition: '在时光的长河中，',
+                        emotion: '那些如诗如梦的',
+                        ending: '这些美好如诗的记忆，将在岁月的长河中永远流淌。'
+                    },
+                    simple: {
+                        opening: '回想起来，',
+                        transition: '那时候，',
+                        emotion: '那些真实的',
+                        ending: '这些朴实无华的回忆，是我一生中最真实的财富。'
+                    }
+                };
+                
+                const template = styleTemplates[style] || styleTemplates.warm;
+                
+                // 构建详细内容
+                let content = template.opening + theme + '，心中总是涌起阵阵暖流。';
+                
+                // 添加具体回忆内容 - 基于用户回答详细展开
+                if (responses.length > 0) {
+                    content += `\n\n${template.transition}`;
+                    
+                    // 详细展开每个用户回答
+                    responses.forEach((response, index) => {
+                        if (index < 4) { // 使用前4个主要回答
+                            const expandedContent = expandUserResponse(response, theme, template);
+                            content += expandedContent + '\n\n';
+                        }
+                    });
+                    
+                    // 添加情感升华段落
+                    content += `${template.emotion}往事，不仅仅是记忆的片段，更是人生经历的宝贵财富。每一个细节，每一份感动，都深深地印在我的心里。`;
+                    
+                    // 添加反思段落
+                    content += `\n\n现在回想起来，${theme}给我带来的不仅仅是回忆，更是成长和感悟。那些经历让我明白了人生的真谛，懂得了珍惜当下的美好。`;
+                    
+                    // 添加传承意义
+                    content += `\n\n这些经历塑造了今天的我，也让我对未来充满期待。我希望能将这些珍贵的经验和感悟传递给年轻的一代，让他们也能从中获得启发和力量。`;
                 }
+                
+                content += `\n\n${template.ending}`;
+                
+                return content;
             };
             
-            const template = memoirTemplates[theme] || memoirTemplates['童年时光'];
-            return template;
+            // 展开用户回答的辅助函数
+            const expandUserResponse = (response, theme, template) => {
+                // 简单的内容扩展逻辑
+                const keywords = response.match(/[\u4e00-\u9fa5]{2,}/g) || [];
+                let expanded = response;
+                
+                // 根据关键词添加情境描述
+                if (keywords.length > 0) {
+                    expanded += `。那种感觉至今还能清晰地回想起来，`;
+                    if (theme.includes('童年') || theme.includes('求学')) {
+                        expanded += `充满了纯真和美好`;
+                    } else if (theme.includes('职场') || theme.includes('工作')) {
+                        expanded += `满怀着拼搏的激情和成长的喜悦`;
+                    } else {
+                        expanded += `承载着深深的眷恋和无限的温暖`;
+                    }
+                    expanded += `。`;
+                }
+                
+                return expanded;
+            };
+            
+            const content = generateDetailedMemoir(theme, userResponses, style);
+            const title = generateTitle(theme, userResponses);
+            
+            console.log(`📝 生成回忆录 - 主题: ${theme}, 字数: ${content.length}, 风格: ${style}`);
+            
+            return {
+                title: title,
+                content: content
+            };
+        };
+        
+        // 生成回忆录标题
+        const generateTitle = (theme, responses) => {
+            const titleTemplates = {
+                '童年时光': ['我的童年岁月', '纯真年代', '童年往事', '天真岁月'],
+                '求学之路': ['我的求学时光', '书香年华', '学习之路', '青春求学路'],
+                '职场岁月': ['我的职场经历', '奋斗年华', '职场征程', '工作生涯回忆'],
+                '时代记忆': ['我见证的时代', '时代足迹', '历史见证', '时光印记']
+            };
+            
+            const templates = titleTemplates[theme] || titleTemplates['童年时光'];
+            
+            // 根据内容关键词选择更合适的标题
+            if (responses.length > 0) {
+                const content = responses.join('');
+                if (content.includes('项目') || content.includes('工作')) {
+                    return '携手并进的职场岁月';
+                } else if (content.includes('学校') || content.includes('老师')) {
+                    return '书香满园的求学路';
+                } else if (content.includes('朋友') || content.includes('玩')) {
+                    return '纯真美好的童年时光';
+                }
+            }
+            
+            return templates[Math.floor(Math.random() * templates.length)];
         };
         
         if (type === 'question') {

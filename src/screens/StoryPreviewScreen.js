@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import * as Speech from 'expo-speech';
+import { getTTSAudio } from '../services/ttsService';
 
 const StoryPreviewScreen = ({ route, navigation }) => {
   // route.params 用于接收导航时传递过来的参数
@@ -15,7 +16,7 @@ const StoryPreviewScreen = ({ route, navigation }) => {
     };
   }, []);
 
-  const handleSpeak = () => {
+  const handleSpeak = async () => {
     if (isSpeaking) {
       Speech.stop();
       setIsSpeaking(false);
@@ -23,12 +24,24 @@ const StoryPreviewScreen = ({ route, navigation }) => {
     }
 
     setIsSpeaking(true);
-    Speech.speak(memoir.title + "。" + memoir.content, {
-      language: 'zh-CN',
-      onDone: () => setIsSpeaking(false),
-      onStopped: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
-    });
+    const fullText = memoir.title + "。" + memoir.content;
+    
+    try {
+      // 优先使用AI TTS (小露语音)
+      console.log('🎵 开始朗读回忆录，使用AI TTS');
+      await getTTSAudio(fullText);
+      setIsSpeaking(false);
+      console.log('✅ AI TTS朗读完成');
+    } catch (error) {
+      console.log('⚠️ AI TTS失败，降级到系统TTS:', error);
+      // 降级到系统TTS
+      Speech.speak(fullText, {
+        language: 'zh-CN',
+        onDone: () => setIsSpeaking(false),
+        onStopped: () => setIsSpeaking(false),
+        onError: () => setIsSpeaking(false),
+      });
+    }
   };
 
   return (
