@@ -153,7 +153,7 @@ export const getNextQuestion = async (conversationHistory, theme = '生活回忆
  * @param {string} theme - 对话主题
  * @returns {Promise<object>} 返回包含标题和内容的故事对象 { title: string, content: string }
  */
-export const generateMemoir = async (conversationHistory, theme = '生活回忆') => {
+export const generateMemoir = async (conversationHistory, theme = '生活回忆', style = 'warm') => {
     try {
         console.log("AI Service: Generating memoir for theme:", theme);
         
@@ -173,7 +173,8 @@ export const generateMemoir = async (conversationHistory, theme = '生活回忆'
             body: JSON.stringify({
                 messages: messages,
                 type: 'memoir',
-                theme: theme
+                theme: theme,
+                style: style
             }),
             timeout: 30000 // 30秒超时
         });
@@ -208,3 +209,230 @@ export const generateMemoir = async (conversationHistory, theme = '生活回忆'
         };
     }
 }; 
+
+/**
+ * 获取问答进度
+ * @param {Array} conversationHistory - 对话历史
+ * @param {string} theme - 对话主题
+ * @returns {Promise<Object>} 进度信息
+ */
+export async function getQuestionProgress(conversationHistory, theme) {
+    // 转换前端格式到后端格式
+    const backendFormat = convertToBackendFormat(conversationHistory);
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/question-progress`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                messages: backendFormat,
+                theme: theme
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('📊 问答进度:', data);
+        return data;
+    } catch (error) {
+        console.warn('获取问答进度失败:', error);
+        // 降级方案：使用本地计算
+        console.log('🔄 使用本地问答进度计算');
+        return getLocalQuestionProgress(conversationHistory, theme);
+    }
+}
+
+/**
+ * 转换前端对话格式到后端格式
+ * 前端: {speaker: 'user'/'ai', text: '...'}
+ * 后端: {role: 'user'/'assistant', content: '...'}
+ */
+function convertToBackendFormat(conversationHistory) {
+    return conversationHistory.map(msg => {
+        if (msg.role && msg.content) {
+            // 已经是后端格式
+            return msg;
+        } else if (msg.speaker && msg.text) {
+            // 前端格式，需要转换
+            return {
+                role: msg.speaker === 'ai' ? 'assistant' : msg.speaker,
+                content: msg.text
+            };
+        }
+        return msg; // 未知格式，保持原样
+    });
+}
+
+/**
+ * 本地问答进度计算（降级方案）
+ */
+function getLocalQuestionProgress(conversationHistory, theme) {
+    // 统一使用前端格式进行计算
+    const userResponses = conversationHistory.filter(msg => 
+        (msg.speaker === 'user') || (msg.role === 'user')
+    );
+    const maxQuestions = getMaxQuestions(theme);
+    const currentCount = userResponses.length;
+    
+    console.log('🔍 计算问答进度:', {
+        总对话数: conversationHistory.length,
+        用户回答数: currentCount,
+        最大问题数: maxQuestions,
+        对话格式: conversationHistory[0] ? Object.keys(conversationHistory[0]) : '空',
+        前5条消息: conversationHistory.slice(0, 5).map(msg => ({
+            speaker: msg.speaker || msg.role,
+            length: (msg.text || msg.content || '').length
+        }))
+    });
+    
+    return {
+        currentCount,
+        maxQuestions,
+        progress: Math.min((currentCount / maxQuestions) * 100, 100),
+        canGenerateMemoir: currentCount >= Math.ceil(maxQuestions * 0.6), // 60%完成度即可生成
+        isComplete: currentCount >= maxQuestions,
+        usingLocal: true // 标识使用本地计算
+    };
+}
+
+function getMaxQuestions(theme) {
+    const limits = {
+        '童年时光': 8,
+        '求学之路': 8,
+        '工作经历': 10,
+        '情感生活': 8,
+        '家庭回忆': 8,
+        '人生感悟': 6
+    };
+    return limits[theme] || 8;
+}
+
+/**
+ * 获取写作风格列表
+ * @returns {Promise<Object>} 写作风格配置
+ */
+export async function getWritingStyles() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/writing-styles`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('✨ 写作风格:', data);
+        return data;
+    } catch (error) {
+        console.warn('获取写作风格失败:', error);
+        // 降级方案：使用本地配置
+        console.log('🔄 使用本地写作风格配置');
+        return getLocalWritingStyles();
+    }
+}
+
+/**
+ * 本地写作风格配置（降级方案）
+ */
+function getLocalWritingStyles() {
+    return {
+        warm: {
+            name: '温馨怀旧',
+            description: '温暖亲切的叙述，充满怀念之情',
+            icon: '🌟',
+            prompt: '以温暖怀旧的语调'
+        },
+        vivid: {
+            name: '生动叙述',
+            description: '详细生动的描述，如临其境',
+            icon: '🎨',
+            prompt: '以生动详细的描述'
+        },
+        poetic: {
+            name: '诗意抒情',
+            description: '富有诗意的表达，情感丰富',
+            icon: '🌸',
+            prompt: '以诗意抒情的笔调'
+        },
+        simple: {
+            name: '朴实真挚',
+            description: '朴素真实的表达，平实感人',
+            icon: '💝',
+            prompt: '以朴实真挚的语言'
+        }
+    };
+}
+
+/**
+ * 保存回忆录
+ * @param {Object} memoir - 回忆录数据
+ * @param {Array} conversationHistory - 对话历史
+ * @param {string} theme - 主题
+ * @param {string} style - 写作风格
+ * @returns {Promise<Object>} 保存结果
+ */
+export async function saveMemoirToBackend(memoir, conversationHistory, theme, style) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/memoirs`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                title: memoir.title,
+                content: memoir.content,
+                theme: theme,
+                style: style,
+                conversationData: conversationHistory,
+                userId: 'anonymous' // 可以后续添加用户系统
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('💾 回忆录保存成功:', data);
+        return data;
+    } catch (error) {
+        console.error('保存回忆录失败:', error);
+        throw error;
+    }
+}
+
+/**
+ * 获取用户的回忆录列表
+ * @param {string} userId - 用户ID（可选）
+ * @returns {Promise<Array>} 回忆录列表
+ */
+export async function getUserMemoirs(userId = 'anonymous') {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/memoirs?userId=${userId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('📚 用户回忆录列表:', data.length, '篇');
+        return data;
+    } catch (error) {
+        console.error('获取回忆录列表失败:', error);
+        return [];
+    }
+} 
