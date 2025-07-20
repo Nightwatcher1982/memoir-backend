@@ -817,55 +817,77 @@ app.post('/api/chat', async (req, res) => {
         console.log('Using enhanced AI simulation - production-grade mock responses');
         
         // 分析对话历史，生成更智能的问题
-        const generateSmartQuestion = (messages, type) => {
+        const generateSmartQuestion = (messages, theme) => {
             const userMessages = messages.filter(msg => msg.role === 'user');
             const questionCount = userMessages.length;
             
+            console.log(`🎯 智能提问 - 主题: ${theme}, 问题数: ${questionCount}`);
+            
+            // 分阶段深度提问框架
             const questionSets = {
-                '童年时光': [
-                    "能跟我详细说说您印象最深刻的童年回忆吗？",
-                    "您小时候最喜欢和谁一起玩耍？能描述一下那时的快乐时光吗？",
-                    "回想起童年，哪个节日或特殊的日子让您至今难忘？",
-                    "您童年时代居住的地方是什么样子的？有什么特别之处吗？",
-                    "小时候您最爱听什么故事？是谁讲给您听的？",
-                    "您记得第一次上学时的情景吗？当时心情如何？",
-                    "童年时期有什么让您感到特别骄傲的事情吗？",
-                    "您还记得小时候最害怕的事情是什么吗？后来是怎样克服的？"
-                ],
-                '求学之路': [
-                    "您还记得自己的启蒙老师吗？他/她给您留下了什么印象？",
-                    "在学生时代，哪门功课是您最感兴趣的？为什么？",
-                    "您有没有特别难忘的考试经历？能跟我分享一下吗？",
-                    "学生时代，您遇到过什么困难？是如何解决的？",
-                    "您还记得同窗好友吗？有什么有趣的校园故事？",
-                    "那个年代的学校生活和现在有什么不同？",
-                    "您的求学路上，谁给了您最大的支持和鼓励？",
-                    "毕业时，您对未来有什么期望和规划？"
-                ],
-                '时代记忆': [
-                    "您经历过哪些重要的历史时刻？当时的感受如何？",
-                    "那个年代的生活节奏和现在相比有什么不同？",
-                    "您还记得当时流行的歌曲、电影或文学作品吗？",
-                    "那个时代的人们是如何消遣娱乐的？",
-                    "您见证了哪些科技或社会的重大变化？",
-                    "当时的邻里关系是怎样的？大家是如何相互帮助的？",
-                    "您还记得那个年代的重要节日是如何庆祝的吗？",
-                    "您觉得哪些传统文化在您那个年代保持得特别好？"
-                ]
+                '童年时光': {
+                    opening: [
+                        "您好，今天我们来聊聊您的童年时光。您还记得小时候最喜欢做什么吗？",
+                        "能跟我说说您印象最深刻的童年回忆吗？"
+                    ],
+                    deepening: [
+                        "您小时候最常去的地方是哪里？那里有什么特别的回忆？",
+                        "您还记得童年时最要好的朋友吗？你们一起做过什么有趣的事？",
+                        "小时候家里的情况是怎样的？您在家中排行第几？",
+                        "您还记得过年过节时的情景吗？有什么特别的习俗或传统？",
+                        "小时候您最喜欢玩什么游戏？能详细说说吗？"
+                    ],
+                    emotion: [
+                        "回想起童年，什么时候让您觉得最快乐？",
+                        "童年时期有什么事情让您印象特别深刻的吗？",
+                        "您觉得童年时光教会了您什么重要的东西？"
+                    ],
+                    closure: [
+                        "如果能重新经历童年，您最想改变什么，或者最想重温什么？",
+                        "您想对现在的孩子们说些什么关于童年的话吗？"
+                    ]
+                },
+                '求学之路': {
+                    opening: [
+                        "我们来聊聊您的求学经历吧。您还记得第一天上学时的情景吗？",
+                        "您最难忘的一位老师是谁？"
+                    ],
+                    deepening: [
+                        "您最喜欢的科目是什么？为什么喜欢它？",
+                        "学生时代有什么特别难忘的考试或竞赛经历吗？",
+                        "您和同学们的关系怎么样？有特别要好的朋友吗？",
+                        "那个年代的学校生活是什么样的？",
+                        "您在学习中遇到过什么困难吗？是怎么克服的？"
+                    ],
+                    emotion: [
+                        "求学路上什么时候让您感到最自豪？",
+                        "您觉得教育对您的人生有什么重要影响？",
+                        "毕业的时候，您对未来有什么期望？"
+                    ],
+                    closure: [
+                        "如果重新选择，您会走同样的求学路吗？",
+                        "您想对正在求学的年轻人说些什么？"
+                    ]
+                }
             };
             
-            // 从当前主题中选择合适的问题
-            const themeQuestions = questionSets[type] || questionSets['童年时光'];
+            // 获取当前主题的问题库
+            const themeQuestions = questionSets[theme] || questionSets['童年时光'];
             
-            // 根据对话次数智能选择问题
-            if (questionCount === 0) {
-                return themeQuestions[0]; // 开场问题
-            } else if (questionCount < themeQuestions.length) {
-                return themeQuestions[questionCount];
-            } else {
-                // 生成总结性问题
-                return `经过我们的对话，我感受到了您丰富的人生阅历。还有什么关于${type}的珍贵回忆想要分享的吗？`;
+            // 根据问题数量确定提问阶段
+            let stage = 'opening';
+            if (questionCount >= 1 && questionCount <= 4) {
+                stage = 'deepening';
+            } else if (questionCount >= 5 && questionCount <= 6) {
+                stage = 'emotion';
+            } else if (questionCount >= 7) {
+                stage = 'closure';
             }
+            
+            const stageQuestions = themeQuestions[stage] || themeQuestions.opening;
+            const questionIndex = questionCount === 0 ? 0 : Math.min(questionCount - (stage === 'deepening' ? 1 : stage === 'emotion' ? 5 : 7), stageQuestions.length - 1);
+            
+            return stageQuestions[questionIndex] || `经过我们的对话，我感受到了您丰富的人生阅历。还有什么关于${theme}的珍贵回忆想要分享的吗？`;
         };
         
         // 生成智能回忆录
@@ -893,7 +915,7 @@ app.post('/api/chat', async (req, res) => {
         };
         
         if (type === 'question') {
-            const smartQuestion = generateSmartQuestion(messages, req.body.theme || '童年时光');
+            const smartQuestion = generateSmartQuestion(messages, theme || '童年时光');
             return res.json({ next_question: smartQuestion });
         } else if (type === 'memoir') {
             const memoir = generateSmartMemoir(messages, theme || '童年时光', style || 'warm');
