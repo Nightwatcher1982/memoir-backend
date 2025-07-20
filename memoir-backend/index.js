@@ -1034,7 +1034,20 @@ app.post('/api/chat', async (req, res) => {
             const smartQuestion = generateSmartQuestion(messages, theme || '童年时光');
             return res.json({ next_question: smartQuestion });
         } else if (type === 'memoir') {
+            console.log('🔥 后端收到memoir请求:', {
+                type,
+                theme,
+                style,
+                messagesCount: messages.length,
+                firstMessage: messages[0],
+                lastMessage: messages[messages.length - 1]
+            });
             const memoir = generateSmartMemoir(messages, theme || '童年时光', style || 'warm');
+            console.log('🔥 后端生成memoir结果:', {
+                title: memoir.title,
+                contentLength: memoir.content.length,
+                contentPreview: memoir.content.substring(0, 100)
+            });
             return res.json(memoir);
         }
         
