@@ -932,13 +932,19 @@ app.post('/api/chat', async (req, res) => {
         
         // 生成智能回忆录 - 增强版800-1000字
         const generateSmartMemoir = (messages, theme, style = 'warm') => {
+            console.log('🔥 generateSmartMemoir 被调用:', { messagesCount: messages.length, theme, style });
+            console.log('🔥 输入messages:', JSON.stringify(messages.slice(0, 3), null, 2));
+            
             const userResponses = messages.filter(msg => msg.role === 'user').map(msg => msg.content);
+            console.log('🔥 提取的用户回答:', userResponses);
             
             // 分析对话内容
             const fullDialogue = messages.map(msg => `${msg.role === 'user' ? '我' : 'AI'}：${msg.content}`).join('\n');
             
             // 根据主题生成详细回忆录
             const generateDetailedMemoir = (theme, responses, style) => {
+                console.log('🔥 generateDetailedMemoir 被调用:', { theme, responsesCount: responses.length, style });
+                console.log('🔥 用户回答列表:', responses);
                 const styleTemplates = {
                     warm: {
                         opening: '时光荏苒，回想起',

@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "时光留声",
-    "slug": "time-echo-memoir",
-    "version": "1.0.0",
+    "slug": "memoir-app",
+    "version": "1.0.3",
     "main": "App.js",
     "orientation": "portrait",
     "userInterfaceStyle": "light",

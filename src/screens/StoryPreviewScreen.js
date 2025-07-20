@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import * as Speech from 'expo-speech';
-import { getTTSAudio } from '../services/ttsService';
+import { speakText } from '../services/ttsService';
 
 const StoryPreviewScreen = ({ route, navigation }) => {
   // route.params 用于接收导航时传递过来的参数
   const { memoir } = route.params;
+  
+  console.log("📖 StoryPreviewScreen 接收到的memoir数据:", {
+    id: memoir?.id,
+    title: memoir?.title,
+    contentLength: memoir?.content?.length || 0,
+    hasContent: !!memoir?.content,
+    contentPreview: memoir?.content?.substring(0, 100) || "无内容"
+  });
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   // 确保当用户离开页面时，停止朗读
@@ -29,7 +37,7 @@ const StoryPreviewScreen = ({ route, navigation }) => {
     try {
       // 优先使用AI TTS (小露语音)
       console.log('🎵 开始朗读回忆录，使用AI TTS');
-      await getTTSAudio(fullText);
+      await speakText(fullText);
       setIsSpeaking(false);
       console.log('✅ AI TTS朗读完成');
     } catch (error) {

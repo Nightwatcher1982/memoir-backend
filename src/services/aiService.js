@@ -5,6 +5,9 @@
  * 提供智能对话和回忆录生成功能
  */
 
+// 缓存测试标记 - 2025-01-20 11:50
+console.log("🚨 aiService.js 加载完成 - 前端代码已更新！时间戳:", new Date().toISOString());
+
 // 后端API基础URL - 强制使用Railway云端部署
 // const API_BASE_URL = __DEV__ ? 'http://192.168.3.115:3000' : 'https://memoir-backend-production-b9b6.up.railway.app';
 const API_BASE_URL = 'https://memoir-backend-production-b9b6.up.railway.app'; // 强制使用云端API
@@ -155,7 +158,25 @@ export const getNextQuestion = async (conversationHistory, theme = '生活回忆
  */
 export const generateMemoir = async (conversationHistory, theme = '生活回忆', style = 'warm') => {
     try {
-        console.log("AI Service: Generating memoir for theme:", theme);
+        console.log("🔥 AI Service: 开始生成回忆录 - 使用新逻辑!", { theme, conversationCount: conversationHistory.length });
+        
+        // 转换前端格式 {speaker, text} 到后端格式 {role, content}
+        const convertedMessages = conversationHistory.map(msg => ({
+            role: msg.speaker === 'ai' ? 'assistant' : 'user',
+            content: msg.text
+        }));
+        
+        const requestBody = {
+            messages: convertedMessages,  // 发送转换后的对话历史
+            type: 'memoir',
+            theme: theme,
+            style: style
+        };
+        
+        console.log("🔥 发送到后端的请求体 - UPDATED VERSION:", requestBody);
+        console.log("🔥 转换前原始数据 - UPDATED:", JSON.stringify(conversationHistory.slice(0, 3), null, 2));
+        console.log("🔥 转换后发送数据 - UPDATED:", JSON.stringify(convertedMessages.slice(0, 3), null, 2));
+        console.log("🔥 数据转换成功 - UPDATED - 时间戳:", new Date().toISOString());
         
         // 直接发送对话历史，让后端的增强AI处理
         const response = await fetch(`${API_BASE_URL}/api/chat`, {
@@ -164,31 +185,42 @@ export const generateMemoir = async (conversationHistory, theme = '生活回忆'
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({
-                messages: conversationHistory,  // 直接发送对话历史
-                type: 'memoir',
-                theme: theme,
-                style: style
-            }),
+            body: JSON.stringify(requestBody),
             timeout: 30000 // 30秒超时
         });
+
+        console.log("🔥 API响应状态:", response.status);
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
-        console.log("AI Service: Generated memoir data:", data);
+        console.log("🔥 收到API响应数据:", { 
+            title: data.title, 
+            contentLength: data.content?.length || 0,
+            contentPreview: (data.content || "").substring(0, 100) + "..."
+        });
+        console.log("🔥 完整响应数据:", data);
         
         // 增强的数据验证
         if (!data || typeof data !== 'object') {
             throw new Error('Invalid memoir data format');
         }
         
+        // 🔥 强制确保内容完整性
+        const finalContent = data.content || data.Content || '这是一段珍贵的回忆，记录了您分享的美好时光。';
+        
+        console.log("🔥 最终内容检查:", {
+            原始长度: finalContent.length,
+            内容预览: finalContent.substring(0, 100),
+            是否完整: finalContent.length > 100
+        });
+        
         return {
             title: data.title || data.Title || '我的珍贵回忆',
             theme: theme,
-            content: data.content || data.Content || '这是一段珍贵的回忆，记录了您分享的美好时光。'
+            content: finalContent
         };
     } catch (error) {
         console.error('AI Service Error:', error);

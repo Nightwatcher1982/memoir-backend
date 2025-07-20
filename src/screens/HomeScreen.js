@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
 
 const HomeScreen = ({ navigation }) => {
   // 这里的 navigation 是由导航器自动注入的属性，用于页面跳转
@@ -71,11 +71,19 @@ const styles = StyleSheet.create({
     borderRadius: 15, // 圆角，显得更柔和
     alignItems: 'center',
     marginBottom: 20,
-    shadowColor: '#000', // 添加一些阴影增加立体感
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 5,
+    // 兼容Web和移动端的阴影效果
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 2px 5px rgba(0, 0, 0, 0.2)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+        elevation: 5,
+      },
+    }),
   },
   primaryButtonText: {
     fontSize: 24, // 巨大的按钮文字

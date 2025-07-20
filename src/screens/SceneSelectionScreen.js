@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, FlatList, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, FlatList, Dimensions, Platform } from 'react-native';
 
 // 预设的回忆主题
 const PRESET_SCENES = [
@@ -77,11 +77,19 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     padding: 25,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 3,
+    // 兼容Web和移动端的阴影效果
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 2px 5px rgba(0, 0, 0, 0.1)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 5,
+        elevation: 3,
+      },
+    }),
   },
   cardTitle: {
     fontSize: 24,
