@@ -681,8 +681,20 @@ app.post('/api/memoirs', (req, res) => {
         return res.status(400).json({ error: '缺少必要的字段' });
     }
     
+    // 清理数据格式 - 移除"标题："和"正文："前缀
+    const cleanTitle = title.replace(/^(标题：|Title:\s*)/g, '').trim();
+    const cleanContent = content.replace(/^(正文：|Content:\s*)/g, '').trim();
+    
+    console.log('📝 保存回忆录数据清理:', {
+        原标题: title,
+        清理后标题: cleanTitle,
+        原内容长度: content.length,
+        清理后内容长度: cleanContent.length,
+        清理后内容预览: cleanContent.substring(0, 100) + '...'
+    });
+    
     const id = uuidv4();
-    const wordCount = content.length;
+    const wordCount = cleanContent.length;
     const conversationJson = JSON.stringify(conversationData || []);
     
     const sql = `
@@ -690,7 +702,7 @@ app.post('/api/memoirs', (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
-    db.run(sql, [id, title, content, theme, style, wordCount, conversationJson, userId || 'anonymous'], function(err) {
+    db.run(sql, [id, cleanTitle, cleanContent, theme, style, wordCount, conversationJson, userId || 'anonymous'], function(err) {
         if (err) {
             console.error('保存回忆录失败:', err.message);
             return res.status(500).json({ error: '保存失败' });
@@ -698,8 +710,8 @@ app.post('/api/memoirs', (req, res) => {
         
         res.json({
             id,
-            title,
-            content,
+            title: cleanTitle,
+            content: cleanContent,
             theme,
             style,
             wordCount,
@@ -984,6 +996,7 @@ app.post('/api/chat', async (req, res) => {
             const title = generateTitle(theme, userResponses);
             
             console.log(`📝 生成回忆录 - 主题: ${theme}, 字数: ${content.length}, 风格: ${style}`);
+            console.log(`📝 生成的内容预览: ${content.substring(0, 100)}...`);
             
             return {
                 title: title,
