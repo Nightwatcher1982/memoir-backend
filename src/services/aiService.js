@@ -157,13 +157,7 @@ export const generateMemoir = async (conversationHistory, theme = '生活回忆'
     try {
         console.log("AI Service: Generating memoir for theme:", theme);
         
-        const messages = [
-            {
-                role: 'user',
-                content: buildMemoirPrompt(theme, conversationHistory)
-            }
-        ];
-
+        // 直接发送对话历史，让后端的增强AI处理
         const response = await fetch(`${API_BASE_URL}/api/chat`, {
             method: 'POST',
             headers: {
@@ -171,7 +165,7 @@ export const generateMemoir = async (conversationHistory, theme = '生活回忆'
                 'Accept': 'application/json'
             },
             body: JSON.stringify({
-                messages: messages,
+                messages: conversationHistory,  // 直接发送对话历史
                 type: 'memoir',
                 theme: theme,
                 style: style
