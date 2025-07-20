@@ -824,9 +824,12 @@ app.post('/api/chat', async (req, res) => {
         return res.status(400).json({ error: 'Messages array is required' });
     }
 
-    if (!MOONSHOT_API_KEY) {
+    // 强制使用生产级模拟AI (暂时禁用外部API)
+    const USE_SIMULATION = true;
+    
+    if (USE_SIMULATION || !MOONSHOT_API_KEY) {
         // 生产级模拟AI - 智能生成个性化问题和回忆录
-        console.log('Using enhanced AI simulation - production-grade mock responses');
+        console.log('🤖 强制使用增强AI模拟 - 生产级响应');
         
         // 分析对话历史，生成更智能的问题
         const generateSmartQuestion = (messages, theme) => {
